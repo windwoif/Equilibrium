@@ -9,10 +9,11 @@ import com.windwoif.balance.AllItems;
 import com.windwoif.balance.Balance;
 import com.windwoif.balance.content.reactors.reactorCore.Phase;
 import com.windwoif.balance.content.reactors.reactorCore.Reactor;
-import com.windwoif.balance.content.reactors.reactorCore.ReactorConnection;
-import com.windwoif.balance.content.reactors.reactorCore.ReactorConnectionManager;
+import com.windwoif.balance.content.reactors.connection.ReactorConnection;
+import com.windwoif.balance.content.reactors.connection.ReactorConnectionManager;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 import com.windwoif.balance.content.recipe.material.Material;
+import com.windwoif.balance.dimension.Atmosphere;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -30,12 +31,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityDimensions;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LightningBolt;
-import net.minecraft.world.entity.MoverType;
-import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -64,13 +60,13 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
 
     private Reactor reactor;
     private List<PhaseData> clientPhases = Collections.emptyList();
-    final int environmentTemperature;
+    final Atmosphere atmosphere;
     private long lastConnectionRefresh = 0;
     private static final long CONNECTION_REFRESH_INTERVAL = 20;
 
     public ReactorEntity(EntityType<?> type, Level world) {
         super(type, world);
-        environmentTemperature = getAtmosphere(world.dimension()).temperature();
+        atmosphere = getAtmosphere(world.dimension());
         if (!level().isClientSide) {
             updateClientPhases();
         }
@@ -80,7 +76,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
         this(AllEntityTypes.REACTOR_ENTITY.get(), world);
         setBoundingBox(boundingBox);
         resetPositionToBB();
-        this.reactor = new Reactor(getHeight(), getArea(), environmentTemperature, 10000);
+        this.reactor = new Reactor(getHeight(), getArea(), atmosphere, 10000);
         if (!level().isClientSide) {
             updateClientPhases();
         }
@@ -124,13 +120,14 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             long now = level().getGameTime();
             if (now - lastConnectionRefresh >= CONNECTION_REFRESH_INTERVAL) {
                 updateConnections();
+                refreshAtmosphereConnections();
                 lastConnectionRefresh = now;
             }
         }
     }
 
     public void addChemical(Chemical chemical, long amount) {
-        if (reactor != null) reactor.changeChemical(chemical, amount, environmentTemperature);
+        if (reactor != null) reactor.changeChemical(chemical, amount, atmosphere.temperature());
     }
 
     private int getHeight() {
@@ -197,7 +194,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             Optional<Map<Chemical, Long>> composition = Material.resolveTagToChemicals(tag);
             if (composition.isPresent()) {
                 composition.get().forEach((chem, amount) -> {
-                    if (reactor != null) reactor.changeChemical(chem, amount, environmentTemperature);
+                    if (reactor != null) reactor.changeChemical(chem, amount, atmosphere.temperature());
                 });
                 stack.shrink(1);
                 player.displayClientMessage(Component.literal("Item decomposed"), true);
@@ -246,7 +243,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
     public void readAdditionalSaveData(CompoundTag compound) {
         Vec3 pos = position();
         setBoundingBox(readBoundingBox(compound).move(pos));
-        this.reactor = new Reactor(getHeight(), getArea(), environmentTemperature, 10000);
+        this.reactor = new Reactor(getHeight(), getArea(), atmosphere, 10000);
         if (compound.contains("ReactorData", Tag.TAG_COMPOUND)) {
             reactor.deserializeNBT(compound.getCompound("ReactorData"));
         }
@@ -399,6 +396,78 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             if (!manager.hasConnection(this, neighbor)) {
                 manager.addConnection(this, neighbor);
             }
+        }
+    }
+
+    private void refreshAtmosphereConnections() {
+        ReactorConnectionManager manager = ReactorConnectionManager.get(level());
+        if (manager == null) return;
+
+        Set<ReactorConnection> existing = new HashSet<>(manager.getConnections(this));
+        for (ReactorConnection conn : existing) {
+            if (conn.isAtmosphereConnection()) {
+                manager.removeConnection(conn);
+            }
+        }
+
+        AABB bb = getBoundingBox();
+        int minX = (int) Math.floor(bb.minX);
+        int maxX = (int) Math.ceil(bb.maxX) - 1;
+        int minY = (int) Math.floor(bb.minY);
+        int maxY = (int) Math.ceil(bb.maxY) - 1;
+        int minZ = (int) Math.floor(bb.minZ);
+        int maxZ = (int) Math.ceil(bb.maxZ) - 1;
+
+        java.util.function.BiPredicate<BlockPos, ReactorEntity> isOccupiedByOtherReactor = (pos, self) -> level().getEntitiesOfClass(ReactorEntity.class, new AABB(pos).inflate(0.1))
+                .stream().anyMatch(e -> e != self);
+
+        java.util.function.BiPredicate<BlockPos, ReactorEntity> isExposed = (pos, self) -> {
+            if (!level().getBlockState(pos).isAir()) return false;
+            return !isOccupiedByOtherReactor.test(pos, self);
+        };
+
+        for (int y = minY; y <= maxY; y++) {
+            int exposedCount = 0;
+            for (int x = minX; x <= maxX; x++) {
+                BlockPos northPos = new BlockPos(x, y, minZ - 1);
+                if (isExposed.test(northPos, this)) exposedCount++;
+                BlockPos southPos = new BlockPos(x, y, maxZ + 1);
+                if (isExposed.test(southPos, this)) exposedCount++;
+            }
+            for (int z = minZ; z <= maxZ; z++) {
+                BlockPos westPos = new BlockPos(minX - 1, y, z);
+                if (isExposed.test(westPos, this)) exposedCount++;
+                BlockPos eastPos = new BlockPos(maxX + 1, y, z);
+                if (isExposed.test(eastPos, this)) exposedCount++;
+            }
+            if (exposedCount > 0) {
+                manager.createAtmosphereConnection(this, ReactorConnection.ConnectionType.VERTICAL,
+                        exposedCount, 1, y, false);
+            }
+        }
+
+        int bottomExposed = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                BlockPos belowPos = new BlockPos(x, minY - 1, z);
+                if (isExposed.test(belowPos, this)) bottomExposed++;
+            }
+        }
+        if (bottomExposed > 0) {
+            manager.createAtmosphereConnection(this, ReactorConnection.ConnectionType.HORIZONTAL,
+                    bottomExposed, 1, minY, true);
+        }
+
+        int topExposed = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                BlockPos abovePos = new BlockPos(x, maxY + 1, z);
+                if (isExposed.test(abovePos, this)) topExposed++;
+            }
+        }
+        if (topExposed > 0) {
+            manager.createAtmosphereConnection(this, ReactorConnection.ConnectionType.HORIZONTAL,
+                    topExposed, 1, maxY, false);
         }
     }
 

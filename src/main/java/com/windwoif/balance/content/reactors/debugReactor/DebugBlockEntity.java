@@ -2,8 +2,8 @@ package com.windwoif.balance.content.reactors.debugReactor;
 
 import com.windwoif.balance.AllBlockEntityTypes;
 import com.windwoif.balance.Balance;
-import com.windwoif.balance.content.recipe.reaction.Reaction;
 import com.windwoif.balance.content.reactors.reactorCore.Reactor;
+import com.windwoif.balance.content.recipe.reaction.Reaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -16,9 +16,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.registries.IForgeRegistry;
 import net.minecraftforge.registries.RegistryManager;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.windwoif.balance.dimension.DimensionAtmosphere.getAtmosphere;
 
 public class DebugBlockEntity extends BlockEntity {
@@ -26,15 +23,10 @@ public class DebugBlockEntity extends BlockEntity {
 
     public DebugBlockEntity(BlockPos pos, BlockState state) {
         super(AllBlockEntityTypes.DEBUG_REACTOR_ENTITY.get(), pos, state);
-        reactor = new Reactor(1000000 , level != null ? getAtmosphere(level.dimension()).temperature() : 0, 1, 10000);
+        reactor = new Reactor(1000000 , 100, level != null ? getAtmosphere(level.dimension()) : null, 10000);
         reactor.setMarkChangedCallback(this::setChanged);
         IForgeRegistry<Reaction> reactionRegistry = RegistryManager.ACTIVE.getRegistry(Balance.REACTION_REGISTRY_KEY);
-        if (reactionRegistry != null) {
-            availableReactions.addAll(reactionRegistry.getValues());
-        }
     }
-
-    private List<Reaction> availableReactions = new ArrayList<>();
 
     public void tick() {
         if (level != null && !level.isClientSide()) {

@@ -1,6 +1,9 @@
-package com.windwoif.balance.content.reactors.reactorCore;
+package com.windwoif.balance.content.reactors.connection;
 
+import com.windwoif.balance.content.reactors.reactorCore.Container;
+import com.windwoif.balance.content.reactors.reactorCore.Phase;
 import com.windwoif.balance.content.reactors.reactorEntity.ReactorEntity;
+import com.windwoif.balance.content.recipe.chemical.Chemical;
 import net.minecraft.world.phys.AABB;
 
 import java.util.Comparator;
@@ -11,8 +14,8 @@ import java.util.stream.Stream;
 public class ReactorConnection {
     private final ReactorEntity lowerEntity;
     private final ReactorEntity upperEntity;
-    private final Reactor lower;
-    private final Reactor upper;
+    private final Container lower;
+    private final Container upper;
     private final ConnectionType type;
     private int offsetLower;
     private int offsetUpper;
@@ -21,8 +24,38 @@ public class ReactorConnection {
     private boolean active = true;
     private boolean mechanical = false;
     private static final double STEP_LENGTH = 0.05;
-    private static final double SPREAD_RATE = 0.05;
+    private static final double SPREAD_RATE = 1;
     private List<Container.PhaseInterface> interfaces;
+
+    public ReactorConnection(ReactorEntity containerEntity, AtmosphereContainer atmosphere,
+                             ConnectionType type, int contactWidth, int contactHeight,
+                             double globalMinY, boolean atmosphereBelow) {
+        this.type = type;
+        this.contactWidth = contactWidth;
+        this.contactHeight = contactHeight;
+        this.mechanical = true;
+        this.active = true;
+
+        if (atmosphereBelow) {
+            // 大气在下方，作为 lower
+            this.lower = atmosphere;
+            this.upper = containerEntity.getReactor();
+            this.lowerEntity = null;
+            this.upperEntity = containerEntity;
+            double containerBottom = containerEntity.getBoundingBox().minY;
+            this.offsetUpper = (int) (globalMinY - containerBottom); // 偏移量相对于容器（upper）底部
+            this.offsetLower = 0; // 大气侧忽略
+        } else {
+            // 大气在上方，作为 upper
+            this.lower = containerEntity.getReactor();
+            this.upper = atmosphere;
+            this.lowerEntity = containerEntity;
+            this.upperEntity = null;
+            double containerBottom = containerEntity.getBoundingBox().minY;
+            this.offsetLower = (int) (globalMinY - containerBottom);
+            this.offsetUpper = 0;
+        }
+    }
 
     public void setActive(boolean active) {
         this.active = active;
@@ -72,8 +105,7 @@ public class ReactorConnection {
 
     public ReactorConnection(ReactorEntity a, ReactorEntity b, ConnectionType type,
                              int contactWidth, int contactHeight,
-                             double globalMinY, double globalMaxY) {
-        // 按高度排序
+                             double globalMinY) {
         if (a.getBoundingBox().minY <= b.getBoundingBox().minY) {
             this.lowerEntity = a;
             this.upperEntity = b;
@@ -101,7 +133,7 @@ public class ReactorConnection {
         exchangeChemical(lower, upper);
     }
 
-    private void exchangeChemical(Reactor a, Reactor b) {
+    private void exchangeChemical(Container a, Container b) {
         a.getSortedPhases().stream().flatMap(phase -> phase.getFlowAmount(this).entrySet().stream()).forEach(entry -> {
             float temperature = a.getTemperature();
             b.changeChemical(entry.getKey(), a.tryChangeChemical(entry.getKey(), -entry.getValue(), temperature) , temperature);
@@ -138,8 +170,8 @@ public class ReactorConnection {
                     return new Container.PhaseInterface(pressure, phase, phase, height);
                 });
 
-        Container.PhaseInterface bottom = createVirtualInterface(0.0);
-        Container.PhaseInterface top = createVirtualInterface(contactHeight);
+        Container.PhaseInterface bottom = createInterface(0.0);
+        Container.PhaseInterface top = createInterface(contactHeight);
 
         interfaces = Stream.of(Stream.of(bottom, top), lowerStream, upperStream)
                 .flatMap(s -> s)
@@ -147,7 +179,7 @@ public class ReactorConnection {
                 .collect(Collectors.toList());
     }
 
-    private Container.PhaseInterface createVirtualInterface(double localHeight) {
+    private Container.PhaseInterface createInterface(double localHeight) {
         double lowerGlobal = offsetLower + localHeight;
         double upperGlobal = offsetUpper + localHeight;
         Container.PressureInfo lowerInfo = lower.getPressureInfo(lowerGlobal);
@@ -170,7 +202,9 @@ public class ReactorConnection {
             Phase phase1 = lower.phaseAbove();
             Phase phase2 = upper.phaseBelow();
             double density = (phase1.getDensity() + phase2.getDensity()) / 2;
-
+            if (phase1.getState() == Chemical.State.GAS && phase2.getState() == Chemical.State.GAS) {
+                density = 1 / SPREAD_RATE;
+            }
 
             if (phase1 != phase2) {
                 double zero = h1 - p1 * (h1 - h2) / (p1 - p2);
@@ -213,11 +247,8 @@ public class ReactorConnection {
 
         boolean downToUp = deltaP > 0;
         Phase sourcePhase = downToUp ? lowerTop.phase() : upperBottom.phase();
-        Phase targetPhase = downToUp ? upperBottom.phase() : lowerTop.phase();
-
         double density = sourcePhase.getDensity();
-        if (density <= 0) density = 1.0;
-
+        if (sourcePhase.getState() == Chemical.State.GAS) density = 1 / SPREAD_RATE;
         double area = contactWidth * contactHeight;
         double absDeltaP = Math.abs(deltaP);
         double volume = STEP_LENGTH * area * (2.0/3.0) * Math.sqrt(2 * absDeltaP / density);
@@ -295,4 +326,7 @@ public class ReactorConnection {
 
     public void invalidate() { active = false; }
     public boolean isActive() { return active; }
+    public boolean isAtmosphereConnection() {
+        return upperEntity == null || lowerEntity == null;
+    }
 }

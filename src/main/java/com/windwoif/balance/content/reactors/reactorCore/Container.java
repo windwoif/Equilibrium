@@ -3,6 +3,7 @@ package com.windwoif.balance.content.reactors.reactorCore;
 import com.mojang.logging.LogUtils;
 import com.windwoif.balance.Balance;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
+import com.windwoif.balance.dimension.Atmosphere;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -26,13 +27,16 @@ public class Container {
     private double TotalVolume;
 
 
-    public Container(int height, int area, long temp, long heatCapacity) {
+    public Container(int height, int area, Atmosphere atmosphere, long heatCapacity) {
         Area = area;
         Height = height;
         Volume = area * height * 1000L;
         BasicHeatCapacity = heatCapacity;
+        int temp = atmosphere.temperature();
         heat = temp * heatCapacity;
         temperature = temp;
+
+        // 初始化相的映射和排序列表
         Phase liquidPolarPhase = new Phase(Chemical.State.LIQUID_POLAR);
         Phase liquidNonpolarPhase = new Phase(Chemical.State.LIQUID_NONPOLAR);
         phases.put(Chemical.State.SOLID, new Phase(Chemical.State.SOLID));
@@ -49,6 +53,22 @@ public class Container {
         sortedPhases.add(phases.get(Chemical.State.GAS));
         sortedPhases.add(phases.get(Chemical.State.MOLTEN_SALT));
         sortedPhases.add(phases.get(Chemical.State.MOLTEN_METAL));
+
+        Phase gasPhase = phases.get(Chemical.State.GAS);
+        double volumeCubicMeters = Volume / 1000.0;
+        for (Map.Entry<Chemical, Integer> entry : atmosphere.atmosphere().entrySet()) {
+            Chemical chemical = entry.getKey();
+            int millimolesPerCubicMeter = entry.getValue();
+            long totalMillimoles = (long) (millimolesPerCubicMeter * volumeCubicMeters);
+            if (totalMillimoles > 0) {
+                gasPhase.getContents().put(chemical, totalMillimoles);
+                contents.put(chemical, totalMillimoles);
+            }
+        }
+
+        gasPhase.updateVolume();
+        gasPhase.updateDensity();
+        updateVolume();
     }
 
     private Runnable markChangedCallback;
@@ -133,7 +153,7 @@ public class Container {
         structurePressure = ((TotalVolume - Volume) * k);
         double heightRatio = Height / TotalVolume;
 
-        double currentPressure = structurePressure + getPhase(Chemical.State.GAS).getAmountOfSubstance() * R * temperature;
+        double currentPressure = structurePressure + getPhase(Chemical.State.GAS).getAmountOfSubstance() * R * temperature / Volume * 1000;
         double currentHeight = Height;
         Phase lastPhase = null;
         for (Phase phase : sortedPhases) {
@@ -142,7 +162,7 @@ public class Container {
                 lastPhase = phase;
                 currentHeight -= heightRatio * phase.getVolume();
 
-                currentPressure += phase.getMass() * g / Area;
+                if (phase.getState() != Chemical.State.GAS) currentPressure += phase.getMass() * g / Area;
                 phase.setPressure(currentPressure);
             }
         }

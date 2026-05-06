@@ -1,8 +1,8 @@
 package com.windwoif.balance.content.valve;
 
 import com.windwoif.balance.AllBlockEntityTypes;
-import com.windwoif.balance.content.reactors.reactorCore.ReactorConnection;
-import com.windwoif.balance.content.reactors.reactorCore.ReactorConnectionManager;
+import com.windwoif.balance.content.reactors.connection.ReactorConnection;
+import com.windwoif.balance.content.reactors.connection.ReactorConnectionManager;
 import com.windwoif.balance.content.reactors.reactorEntity.ReactorEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

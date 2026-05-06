@@ -37,6 +37,9 @@ public class Chemicals {
     public static final RegistryObject<Chemical> OXYGEN = CHEMICALS.register("oxygen",
             () -> new Chemical("O₂", GAS, 0, 205.0f, 22.4f, 29.4f, 32.0f, lucent));
 
+    public static final RegistryObject<Chemical> NITROGEN = CHEMICALS.register("nitrogen",
+            () -> new Chemical("N₂", GAS, 0, 191.6f, 22.4f, 29.1f, 28.0f, lucent));
+
     public static final RegistryObject<Chemical> CARBON_DIOXIDE = CHEMICALS.register("carbon_dioxide",
             () -> new Chemical("CO₂", GAS, -393500, 213.8f, 22.4f, 37.1f, 44.0f, lucent));
 

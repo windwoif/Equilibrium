@@ -1,5 +1,6 @@
 package com.windwoif.balance.content.reactors.reactorCore;
 
+import com.windwoif.balance.content.reactors.connection.ReactorConnection;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 
 import java.util.HashMap;
@@ -19,6 +20,7 @@ public class Phase {
     private double mass;
     private double pressure;
     private static final double UNUPDATED = -1;
+    HashMap<Chemical, Long> RecentContents;
 
     public void clear(){
         contents.clear();
@@ -156,6 +158,7 @@ public class Phase {
     public void renew() {
         connectionDemands.clear();
         demandRatio = UNUPDATED;
+        RecentContents = new HashMap<>(contents);
     }
 
     public Chemical.State getState() {

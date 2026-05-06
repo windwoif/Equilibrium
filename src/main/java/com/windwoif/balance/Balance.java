@@ -1,7 +1,7 @@
 package com.windwoif.balance;
 
 import com.mojang.logging.LogUtils;
-import com.windwoif.balance.content.reactors.reactorCore.ReactorConnectionManager;
+import com.windwoif.balance.content.reactors.connection.ReactorConnectionManager;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 import com.windwoif.balance.content.recipe.chemical.Chemicals;
 import com.windwoif.balance.content.recipe.material.Material;
@@ -35,7 +35,8 @@ import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.registries.*;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 
@@ -73,7 +74,7 @@ public class Balance
     }
     public Balance(FMLJavaModLoadingContext context)
     {
-        com.windwoif.balance.dimension.DimensionAtmosphere.init();
+
         initializeRegistries();
         IEventBus modEventBus = context.getModEventBus();
 
@@ -95,6 +96,7 @@ public class Balance
         // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         BalanceNetwork.registerPackets();
+//        com.windwoif.balance.dimension.DimensionAtmosphere.init();
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)
@@ -106,7 +108,6 @@ public class Balance
             LOGGER.info("DIRT BLOCK >> {}", ForgeRegistries.BLOCKS.getKey(Blocks.DIRT));
 
         LOGGER.info(Config.magicNumberIntroduction + Config.magicNumber);
-
     }
 
     // Add the example block item to the building blocks tab

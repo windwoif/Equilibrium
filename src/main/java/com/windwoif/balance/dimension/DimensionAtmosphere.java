@@ -2,149 +2,162 @@ package com.windwoif.balance.dimension;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 import com.windwoif.balance.Balance;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.registries.IForgeRegistry;
 import net.minecraftforge.registries.RegistryManager;
 
-import java.io.*;
-import java.lang.reflect.Type;
+import java.io.IOException;
+import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ What the ****
+ */
 public class DimensionAtmosphere {
-    private static final Map<ResourceKey<Level>, Atmosphere> atmospheres = new HashMap<>();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Path CONFIG_DIR = Path.of("config", Balance.MODID, "dimensions");
+    private static final Map<ResourceKey<Level>, Atmosphere> ATMOSPHERES = new HashMap<>();
 
-    private static final Atmosphere DEFAULT_ATMOSPHERE;
+    private static Atmosphere defaultAtmosphere = null;
 
-    static {
-        HashMap<Chemical, Integer> defaultMap = new HashMap<>();
-//        defaultMap.put(getChemical("balance:oxygen"), 21);
-//        defaultMap.put(getChemical("balance:nitrogen"), 78);
-//        defaultMap.put(getChemical("balance:argon"), 1);
-        DEFAULT_ATMOSPHERE = new Atmosphere(298, defaultMap);
-    }
-
-    private static Chemical getChemical(String id) {
-        ResourceLocation chemicalId = ResourceLocation.parse(id);
-        return RegistryManager.ACTIVE.getRegistry(Balance.CHEMICAL_REGISTRY_KEY)
-                .getValue(chemicalId);
-    }
+    private static final int TOTAL_MILLIMOLES = 40840;
 
     public static void init() {
+        buildDefaultAtmosphere();
         loadConfigs();
-
-        registerDefault(Level.OVERWORLD, DEFAULT_ATMOSPHERE);
+        registerDefault(Level.OVERWORLD, defaultAtmosphere);
         registerDefault(Level.NETHER, createNetherAtmosphere());
         registerDefault(Level.END, createEndAtmosphere());
     }
 
+    private static void buildDefaultAtmosphere() {
+        HashMap<Chemical, Integer> composition = new HashMap<>();
+        Chemical oxygen = getChemical("balance:oxygen");
+        Chemical nitrogen = getChemical("balance:nitrogen");
+        Chemical carbonDioxide = getChemical("balance:carbon_dioxide");
+
+        if (oxygen != null) composition.put(oxygen, (int) (TOTAL_MILLIMOLES * 0.21));
+        if (nitrogen != null) composition.put(nitrogen, (int) (TOTAL_MILLIMOLES * 0.78));
+        if (carbonDioxide != null) composition.put(carbonDioxide, (int) (TOTAL_MILLIMOLES * 0.0004));
+        // 剩余为氩气等忽略，简化处理
+
+        defaultAtmosphere = new Atmosphere(298, composition);
+        Balance.LOGGER.info("Default atmosphere built: {}K, {} components", 298, composition.size());
+    }
+
     private static Atmosphere createNetherAtmosphere() {
-        HashMap<Chemical, Integer> netherAtmosphere = new HashMap<>();
-//        netherAtmosphere.put(getChemical("balance:carbon_dioxide"), 85);
-//        netherAtmosphere.put(getChemical("balance:sulfur_dioxide"), 10);
-//        netherAtmosphere.put(getChemical("balance:hydrogen_sulfide"), 5);
-        return new Atmosphere(1200, netherAtmosphere);
+        return new Atmosphere(800, new HashMap<>());
     }
 
     private static Atmosphere createEndAtmosphere() {
-        HashMap<Chemical, Integer> endAtmosphere = new HashMap<>();
-//        endAtmosphere.put(getChemical("balance:helium"), 99);
-//        endAtmosphere.put(getChemical("balance:neon"), 1);
-        return new Atmosphere(100, endAtmosphere);
+        return new Atmosphere(50, new HashMap<>());
     }
 
     private static void registerDefault(ResourceKey<Level> dimension, Atmosphere atmosphere) {
-        if (!atmospheres.containsKey(dimension)) {
-            atmospheres.put(dimension, atmosphere);
+        ATMOSPHERES.putIfAbsent(dimension, atmosphere);
+    }
+
+    private static Chemical getChemical(String id) {
+        ResourceLocation location = ResourceLocation.parse(id);
+        IForgeRegistry<Chemical> registry = RegistryManager.ACTIVE.getRegistry(Balance.CHEMICAL_REGISTRY_KEY);
+        if (registry == null) {
+            Balance.LOGGER.warn("Chemical registry not available yet");
+            return null;
         }
+        Chemical chemical = registry.getValue(location);
+        if (chemical == null) {
+            Balance.LOGGER.warn("Unknown chemical: {}", id);
+        }
+        return chemical;
     }
 
     private static void loadConfigs() {
-        Path configDir = Path.of("config", Balance.MODID, "dimensions");
-
         try {
-            Files.createDirectories(configDir);
-
-            createExampleConfig(configDir);
-
-            Files.list(configDir)
-                    .filter(path -> path.toString().endsWith(".json"))
-                    .forEach(DimensionAtmosphere::loadConfig);
-
+            Files.createDirectories(CONFIG_DIR);
         } catch (IOException e) {
-            Balance.LOGGER.error("Failed to load dimension atmosphere configs", e);
+            Balance.LOGGER.error("Failed to create config directory", e);
+            return;
+        }
+
+        try (var stream = Files.list(CONFIG_DIR)) {
+            stream.filter(p -> p.toString().endsWith(".json"))
+                    .forEach(DimensionAtmosphere::loadConfig);
+        } catch (IOException e) {
+            Balance.LOGGER.error("Failed to list config files", e);
         }
     }
 
-    private static void createExampleConfig(Path configDir) throws IOException {
-        Path exampleFile = configDir.resolve("overworld_example.json");
-        if (!Files.exists(exampleFile)) {
-            Map<String, Object> example = new HashMap<>();
-            example.put("temperature", 298);
-
-            Map<String, Integer> atmosphere = new HashMap<>();
-            atmosphere.put("balance:oxygen", 21);
-            atmosphere.put("balance:nitrogen", 78);
-            atmosphere.put("balance:argon", 1);
-
-            example.put("atmosphere", atmosphere);
-
-            try (Writer writer = Files.newBufferedWriter(exampleFile)) {
-                GSON.toJson(example, writer);
+    private static void loadConfig(Path path) {
+        try (Reader reader = Files.newBufferedReader(path)) {
+            ConfigData data = GSON.fromJson(reader, ConfigData.class);
+            ResourceKey<Level> dimension = parseDimensionKey(path.getFileName().toString());
+            if (dimension == null) {
+                Balance.LOGGER.warn("Invalid dimension key from file: {}", path);
+                return;
             }
-        }
-    }
 
-    private static void loadConfig(Path configPath) {
-        try (Reader reader = Files.newBufferedReader(configPath)) {
-            Type type = new TypeToken<Map<String, Object>>(){}.getType();
-            Map<String, Object> config = GSON.fromJson(reader, type);
-
-            int temperature = ((Double) config.get("temperature")).intValue();
-            Map<String, Double> atmosphereRaw = (Map<String, Double>) config.get("atmosphere");
-
-            HashMap<Chemical, Integer> atmosphereMap = new HashMap<>();
-            for (Map.Entry<String, Double> entry : atmosphereRaw.entrySet()) {
+            HashMap<Chemical, Integer> composition = new HashMap<>();
+            for (Map.Entry<String, Integer> entry : data.atmosphere.entrySet()) {
                 Chemical chemical = getChemical(entry.getKey());
                 if (chemical != null) {
-                    atmosphereMap.put(chemical, (int)(entry.getValue() * 100));
+                    composition.put(chemical, entry.getValue());
                 }
             }
-
-            String fileName = configPath.getFileName().toString();
-            String dimensionName = fileName.substring(0, fileName.length() - 5);
-
-            ResourceKey<Level> dimension = ResourceKey.create(
-                    Registries.DIMENSION,
-                    ResourceLocation.parse(dimensionName.replace('_', ':'))
-            );
-
-            atmospheres.put(dimension, new Atmosphere(temperature, atmosphereMap));
-
-            Balance.LOGGER.info("Loaded atmosphere config for dimension: {}", dimension.location());
-
+            Atmosphere atmosphere = new Atmosphere(data.temperature, composition);
+            ATMOSPHERES.put(dimension, atmosphere);
+            Balance.LOGGER.info("Loaded atmosphere for dimension {}: {}K, {} components",
+                    dimension.location(), data.temperature, composition.size());
         } catch (Exception e) {
-            Balance.LOGGER.error("Failed to load config: {}", configPath, e);
+            Balance.LOGGER.error("Failed to load config: {}", path, e);
+        }
+    }
+
+    private static ResourceKey<Level> parseDimensionKey(String fileName) {
+        if (!fileName.endsWith(".json")) return null;
+        String id = fileName.substring(0, fileName.length() - 5);
+        // 支持 "minecraft:overworld.json" 或 "overworld.json" 格式
+        if (!id.contains(":")) {
+            id = "minecraft:" + id;
+        }
+        try {
+            return ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(id));
+        } catch (Exception e) {
+            return null;
         }
     }
 
     public static Atmosphere getAtmosphere(ResourceKey<Level> dimension) {
-        return atmospheres.getOrDefault(dimension, DEFAULT_ATMOSPHERE);
+        // 确保默认大气已构建（如果 init 未被调用，则主动构建）
+        if (defaultAtmosphere == null) {
+            buildDefaultAtmosphere();
+        }
+        return ATMOSPHERES.getOrDefault(dimension, defaultAtmosphere);
     }
 
-    public static void setAtmosphere(ResourceKey<Level> dimension, Atmosphere atmosphere) {
-        atmospheres.put(dimension, atmosphere);
+    public static Atmosphere getAtmosphere(Level level) {
+        return getAtmosphere(level.dimension());
     }
 
-    public static Map<ResourceKey<Level>, Atmosphere> getAllAtmospheres() {
-        return new HashMap<>(atmospheres);
+    public static void reload() {
+        ATMOSPHERES.clear();
+        buildDefaultAtmosphere();
+        loadConfigs();
+        registerDefault(Level.OVERWORLD, defaultAtmosphere);
+        registerDefault(Level.NETHER, createNetherAtmosphere());
+        registerDefault(Level.END, createEndAtmosphere());
+        Balance.LOGGER.info("Dimension atmospheres reloaded");
+    }
+
+    private static class ConfigData {
+        int temperature;
+        Map<String, Integer> atmosphere;
     }
 }

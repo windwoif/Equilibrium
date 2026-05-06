@@ -1,6 +1,8 @@
-package com.windwoif.balance.content.reactors.reactorCore;
+package com.windwoif.balance.content.reactors.connection;
 
 import com.windwoif.balance.content.reactors.reactorEntity.ReactorEntity;
+import com.windwoif.balance.dimension.Atmosphere;
+import com.windwoif.balance.dimension.DimensionAtmosphere;
 import net.minecraft.world.level.Level;
 
 import java.util.*;
@@ -9,10 +11,19 @@ public class ReactorConnectionManager {
     private static final Map<Level, ReactorConnectionManager> instances = new HashMap<>();
     private final Set<ReactorConnection> connections = new HashSet<>();
     private final Map<ReactorEntity, Set<ReactorConnection>> entityMap = new HashMap<>();
+    private final AtmosphereContainer atmosphereContainer;
+
+    private ReactorConnectionManager(Level level) {
+        Atmosphere atmosphere = DimensionAtmosphere.getAtmosphere(level.dimension());
+        this.atmosphereContainer = new AtmosphereContainer(atmosphere);
+    }
 
     public static ReactorConnectionManager get(Level level) {
         if (level.isClientSide) return null;
-        return instances.computeIfAbsent(level, k -> new ReactorConnectionManager());
+        return instances.computeIfAbsent(level, k -> new ReactorConnectionManager(level));
+    }
+    public AtmosphereContainer getAtmosphereContainer() {
+        return atmosphereContainer;
     }
 
     public void addConnection(ReactorEntity a, ReactorEntity b) {
@@ -46,18 +57,36 @@ public class ReactorConnectionManager {
                                                     ReactorConnection.ConnectionType type,
                                                     int contactWidth, int contactHeight,
                                                     double globalMinY, double globalMaxY) {
-        ReactorConnection conn = new ReactorConnection(a, b, type, contactWidth, contactHeight, globalMinY, globalMaxY);
+        ReactorConnection conn = new ReactorConnection(a, b, type, contactWidth, contactHeight, globalMinY);
         connections.add(conn);
         entityMap.computeIfAbsent(a, k -> new HashSet<>()).add(conn);
         entityMap.computeIfAbsent(b, k -> new HashSet<>()).add(conn);
         return conn;
     }
 
+    public ReactorConnection createAtmosphereConnection(ReactorEntity containerEntity,
+                                                        ReactorConnection.ConnectionType type,
+                                                        int contactWidth, int contactHeight,
+                                                        double globalMinY,
+                                                        boolean atmosphereBelow) {
+        ReactorConnection conn = new ReactorConnection(containerEntity, getAtmosphereContainer(),
+                type, contactWidth, contactHeight, globalMinY, atmosphereBelow);
+        connections.add(conn);
+        entityMap.computeIfAbsent(containerEntity, k -> new HashSet<>()).add(conn);
+        return conn;
+    }
+
     public void removeConnection(ReactorConnection conn) {
         conn.invalidate();
         connections.remove(conn);
-        for (ReactorEntity entity : List.of(conn.getLowerEntity(), conn.getUpperEntity())) {
-            Set<ReactorConnection> set = entityMap.get(entity);
+        ReactorEntity lower = conn.getLowerEntity();
+        ReactorEntity upper = conn.getUpperEntity();
+        if (lower != null) {
+            Set<ReactorConnection> set = entityMap.get(lower);
+            if (set != null) set.remove(conn);
+        }
+        if (upper != null) {
+            Set<ReactorConnection> set = entityMap.get(upper);
             if (set != null) set.remove(conn);
         }
     }
@@ -81,6 +110,7 @@ public class ReactorConnectionManager {
     }
 
     public void tick() {
+        atmosphereContainer.tick();
         for (ReactorConnection conn : connections) {
             if (conn.isActive()) {
                 conn.update();

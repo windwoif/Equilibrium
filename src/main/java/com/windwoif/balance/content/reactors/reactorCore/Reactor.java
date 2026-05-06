@@ -3,6 +3,7 @@ package com.windwoif.balance.content.reactors.reactorCore;
 import com.windwoif.balance.Balance;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 import com.windwoif.balance.content.recipe.reaction.Reaction;
+import com.windwoif.balance.dimension.Atmosphere;
 import net.minecraftforge.registries.RegistryManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -16,8 +17,8 @@ public class Reactor extends Container {
 
     private List<Reaction> usableReactions = new ArrayList<>(RegistryManager.ACTIVE.getRegistry(Balance.REACTION_REGISTRY_KEY).getValues());
 
-    public Reactor(int height, int area, long temperature, long heatCapacity) {
-        super(height, area, temperature, heatCapacity);
+    public Reactor(int height, int area, Atmosphere atmosphere, long heatCapacity) {
+        super(height, area, atmosphere, heatCapacity);
     }
 
     public void tick(float timeStep) {
