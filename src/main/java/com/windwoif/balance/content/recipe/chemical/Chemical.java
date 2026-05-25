@@ -9,7 +9,6 @@ public record Chemical(String name, State state, int enthalpy, float entropy, fl
         return enthalpy - temperature * entropy;
     }
 
-    // Helper method to get effective volume for concentration calculations
     public float getEffectiveVolume(long amount) {
         return (float) ((amount / 1000.0) * MolarVolume);
     }

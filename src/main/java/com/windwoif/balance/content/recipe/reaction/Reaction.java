@@ -30,7 +30,7 @@ public class Reaction {
                 ));
     }
     public enum State {
-        LIQUID_POLAR, LIQUID_NONPOLAR, GAS, SOLID
+        LIQUID_POLAR, LIQUID_NONPOLAR, GAS, SOLID, SURFACE
     }
     public double getEq(float T) {
         double deltaG = totalReaction.entrySet().stream()

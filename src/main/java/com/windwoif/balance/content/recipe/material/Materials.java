@@ -29,18 +29,22 @@ public class Materials {
                     phase -> phase.getState() == Chemical.State.MOLTEN_METAL,
                     Map.of(Chemicals.COPPER.get(), NUGGET_BASE)
             ));
+    public static final RegistryObject<Material> COAL = Balance.MATERIALS.register("coal",
+            () -> new Material("coal",
+                    phase -> phase.getState() == Chemical.State.SOLID && phase.getContents().containsKey(Chemicals.CARBON.get()),
+                    Map.of(Chemicals.CARBON.get(), NUGGET_BASE)
+            ));
     public static final RegistryObject<Material> TEST = Balance.MATERIALS.register("redstone",
             () -> new Material("redstone",
                     phase -> phase.getState() == Chemical.State.GAS,
                     Map.of(
-                            Chemicals.OXYGEN.get(), 1000L,
-                            Chemicals.METHANE.get(), 500L
+                            Chemicals.OXYGEN.get(), 10000L
                     )
             ));
     public static final RegistryObject<Material> TEST2 = Balance.MATERIALS.register("lapis",
             () -> new Material("lapis",
                     phase -> phase.getState() == Chemical.State.MOLTEN_METAL,
-                    Map.of(Chemicals.WATER.get(), NUGGET_BASE * 10)));
+                    Map.of(Chemicals.WATER.get(), 685300L)));
     public static final RegistryObject<Material> TEST3 = Balance.MATERIALS.register("quartz",
             () -> new Material("quartz",
                     phase -> phase.getState() == Chemical.State.MOLTEN_METAL,

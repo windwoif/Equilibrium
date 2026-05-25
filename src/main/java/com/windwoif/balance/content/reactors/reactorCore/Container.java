@@ -19,13 +19,14 @@ import static com.windwoif.balance.Balance.CHEMICAL_REGISTRY_KEY;
 public class Container {
     private float temperature;
     protected float heat;
-    private double structurePressure;
-    private final int Area;
+    protected final int Area;
     private final int Height;
     private final long Volume;
     private final long BasicHeatCapacity;
     private double TotalVolume;
 
+    public static final double R = 8.314;
+    private static final double k = 0.005;
 
     public Container(int height, int area, Atmosphere atmosphere, long heatCapacity) {
         Area = area;
@@ -36,7 +37,6 @@ public class Container {
         heat = temp * heatCapacity;
         temperature = temp;
 
-        // 初始化相的映射和排序列表
         Phase liquidPolarPhase = new Phase(Chemical.State.LIQUID_POLAR);
         Phase liquidNonpolarPhase = new Phase(Chemical.State.LIQUID_NONPOLAR);
         phases.put(Chemical.State.SOLID, new Phase(Chemical.State.SOLID));
@@ -61,8 +61,7 @@ public class Container {
             int millimolesPerCubicMeter = entry.getValue();
             long totalMillimoles = (long) (millimolesPerCubicMeter * volumeCubicMeters);
             if (totalMillimoles > 0) {
-                gasPhase.getContents().put(chemical, totalMillimoles);
-                contents.put(chemical, totalMillimoles);
+                changeChemical(chemical, totalMillimoles, temperature);
             }
         }
 
@@ -96,7 +95,7 @@ public class Container {
         temperature = heat / heatCapacity;
     }
 
-    private float calculateHeatCapacity() {
+    public float calculateHeatCapacity() {
         return BasicHeatCapacity + contents.entrySet().stream()
                 .map(a -> a.getKey().getHeatCapacity(a.getValue()))
                 .reduce(0f, Float::sum);
@@ -136,24 +135,26 @@ public class Container {
                 .filter(p -> p.getState() != Chemical.State.GAS)
                 .mapToDouble(Phase::getVolume)
                 .sum();
-        double x = Volume - occupied;
-        double a = 1;
-        double gasVolume = (Math.sqrt(x * x + a) + x) / 2.0;
+        double dv = Volume - occupied;
+
+        double n = getPhase(Chemical.State.GAS).getAmountOfSubstance();
+        double gasVolume = (dv + Math.sqrt(dv*dv + 4 * k * n * R * temperature)) / 2;
         getPhase(Chemical.State.GAS).setVolume(Math.max(0.0, gasVolume));
         TotalVolume = occupied + gasVolume;
     }
 
     private void updatePressure() {
-        final int k = 1000;
-        final double R = 8.314;
+
         final double g = 9.8;
 
         phaseInterfaces.clear();
 
-        structurePressure = ((TotalVolume - Volume) * k);
         double heightRatio = Height / TotalVolume;
 
-        double currentPressure = structurePressure + getPhase(Chemical.State.GAS).getAmountOfSubstance() * R * temperature / Volume * 1000;
+        Phase gas = getPhase(Chemical.State.GAS);
+
+        double currentPressure = gas.isEmpty()? (TotalVolume - Volume) / k :
+                gas.getAmountOfSubstance() * R * temperature / gas.getVolume() * 1000;
         double currentHeight = Height;
         Phase lastPhase = null;
         for (Phase phase : sortedPhases) {
@@ -212,6 +213,10 @@ public class Container {
          changeChemical(chemical, amount);
         float deltaHeat = chemical.getHeatCapacity(amount) * temperature;
         heat += deltaHeat;
+    }
+
+    public void changeHeat(float heat) {
+        this.heat += heat;
     }
 
     public long tryChangeChemical(Chemical chemical, long amount, float temperature) {
@@ -310,9 +315,17 @@ public class Container {
         return temperature;
     }
 
+    public float getHeat() {
+        return heat;
+    }
+
     public void light() {
         temperature += 600;
     }//TODO
+
+    public double getPressure() {
+        return sortedPhases.get(0).getPressure();
+    }
 
     public double getHeight() {
         return Height;

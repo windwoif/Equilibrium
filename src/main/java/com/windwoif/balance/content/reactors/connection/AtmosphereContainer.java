@@ -18,11 +18,12 @@ public class AtmosphereContainer extends Container {
     public AtmosphereContainer(Atmosphere atmosphere) {
         super(1, 1, atmosphere, 1000);
         this.atmosphere = atmosphere;
+        atmosphere.atmosphere().forEach((key, value) -> gasPhase.getContents().put(key, (long) value));
     }
 
     @Override
     public void tick() {
-        gasPhase.renew();
+        gasPhase.emptyRenew();
     }
 
     @Override
@@ -32,14 +33,15 @@ public class AtmosphereContainer extends Container {
     public void changeChemical(Chemical chemical, long amount, float temperature) {}
 
     @Override
+    public void changeHeat(float heat) {}
+
+    @Override
     public long tryChangeChemical(Chemical chemical, long amount, float temperature) {
         return -amount;
     }
 
     @Override
-    public void LoadChemicals(ListTag chemicalsList) {
-        LOGGER.debug("AtmosphereContainer: ignoring LoadChemicals");
-    }
+    public void LoadChemicals(ListTag chemicalsList) {}
 
     @Override
     public ListTag SaveChemicals() {

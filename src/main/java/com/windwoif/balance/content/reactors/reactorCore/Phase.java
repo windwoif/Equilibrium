@@ -145,7 +145,7 @@ public class Phase {
 
         Map<Chemical, Long> result = new HashMap<>();
         for (Map.Entry<Chemical, Long> entry : contents.entrySet()) {
-            long transfer = (long) (entry.getValue() * volumeRatio);
+            long transfer = (long) Math.ceil(entry.getValue() * volumeRatio);
             if (transfer > 0) result.put(entry.getKey(), transfer);
         }
         return result;
@@ -159,6 +159,11 @@ public class Phase {
         connectionDemands.clear();
         demandRatio = UNUPDATED;
         RecentContents = new HashMap<>(contents);
+    }
+
+    public void emptyRenew() {
+        connectionDemands.clear();
+        demandRatio = 1;
     }
 
     public Chemical.State getState() {

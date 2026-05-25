@@ -52,6 +52,7 @@ public class Reactor extends Container {
                                 case LIQUID_POLAR ->  getContentVolume(Chemical.State.LIQUID_POLAR);
                                 case GAS ->  getContentVolume(Chemical.State.GAS);
                                 case SOLID ->  getContentVolume(Chemical.State.SOLID);
+                                case SURFACE -> Area * 1000;
                             };
                         }//TODO
                 ));

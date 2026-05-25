@@ -32,7 +32,7 @@ public class ReactorRenderer extends EntityRenderer<ReactorEntity> {
 		super(context);
 		var atlas = Minecraft.getInstance().getModelManager().getAtlas(InventoryMenu.BLOCK_ATLAS);
 		this.waterSprite = atlas.getSprite(ResourceLocation.parse("balance:block/water_still_opaque"));
-		this.gravelSprite = atlas.getSprite(ResourceLocation.parse("balance:block/gravel_white"));
+		this.gravelSprite = atlas.getSprite(ResourceLocation.parse("balance:block/powder"));
 		this.whiteConcreteSprite = atlas.getSprite(ResourceLocation.parse("balance:block/white_concrete"));
 		this.lavaBWSprite = atlas.getSprite(ResourceLocation.parse("balance:block/lava_still_bw"));
 		this.lightWaterSprite = atlas.getSprite(ResourceLocation.parse("balance:block/water_still_light"));

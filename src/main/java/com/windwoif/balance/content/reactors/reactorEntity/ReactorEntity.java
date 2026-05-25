@@ -50,6 +50,7 @@ import net.minecraftforge.registries.RegistryManager;
 import java.util.*;
 
 import static com.windwoif.balance.dimension.DimensionAtmosphere.getAtmosphere;
+import static net.minecraft.world.item.Items.CLOCK;
 import static net.minecraft.world.item.Items.FLINT_AND_STEEL;
 
 public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData, SpecialEntityItemRequirement {
@@ -185,6 +186,10 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             return InteractionResult.SUCCESS;
         }
 
+        if (stack.is(CLOCK)) {
+            player.displayClientMessage(Component.literal(reactor.getPressure() + "-" + reactor.getTemperature()), true);
+            return InteractionResult.SUCCESS;
+        }
         IForgeRegistry<Material> materialRegistry = RegistryManager.ACTIVE.getRegistry(Balance.MATERIAL_REGISTRY_KEY);
         if (materialRegistry == null) {
             return InteractionResult.FAIL;
@@ -399,6 +404,14 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
         }
     }
 
+    public int getSurface() {
+        AABB aabb = getBoundingBox();
+        int x = (int) aabb.getXsize();
+        int y = (int) aabb.getYsize();
+        int z = (int) aabb.getZsize();
+        return 4*(x + y + z) + 2*(x*y + x*z + y*z);
+    }
+
     private void refreshAtmosphereConnections() {
         ReactorConnectionManager manager = ReactorConnectionManager.get(level());
         if (manager == null) return;
@@ -418,8 +431,11 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
         int minZ = (int) Math.floor(bb.minZ);
         int maxZ = (int) Math.ceil(bb.maxZ) - 1;
 
-        java.util.function.BiPredicate<BlockPos, ReactorEntity> isOccupiedByOtherReactor = (pos, self) -> level().getEntitiesOfClass(ReactorEntity.class, new AABB(pos).inflate(0.1))
-                .stream().anyMatch(e -> e != self);
+        java.util.function.BiPredicate<BlockPos, ReactorEntity> isOccupiedByOtherReactor = (pos, self) -> {
+            AABB blockBox = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1);
+            return level().getEntitiesOfClass(ReactorEntity.class, blockBox)
+                    .stream().anyMatch(e -> e != self);
+        };
 
         java.util.function.BiPredicate<BlockPos, ReactorEntity> isExposed = (pos, self) -> {
             if (!level().getBlockState(pos).isAir()) return false;
@@ -487,6 +503,4 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
         }
         super.onRemovedFromWorld();
     }
-
-
 }
