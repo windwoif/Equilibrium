@@ -5,6 +5,7 @@ import com.windwoif.balance.content.reactors.reactorCore.Phase;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.IForgeRegistry;
 import net.minecraftforge.registries.RegistryManager;
 
@@ -27,24 +28,27 @@ public record Material(
     );
 
 
-    public static Optional<Map<Chemical, Long>> resolveTagToChemicals(TagKey<Item> tag) {
-        String path = tag.location().getPath(); // "ingots/copper"
-        String[] parts = path.split("/");
-        String form;
-        String materialName;
-        if (parts.length == 2){
-            form = parts[0]; // "ingots"
-            materialName = parts[1]; // "copper"
-        } else {
-            return Optional.empty();
-        }
-        IForgeRegistry<Material> materialRegistry = RegistryManager.ACTIVE.getRegistry(Balance.MATERIAL_REGISTRY_KEY);
-        Material material = materialRegistry.getValue(fromNamespaceAndPath(MODID,materialName));
-        if (material == null) return Optional.empty();
+    public static Optional<Map<Chemical, Long>> resolve(ItemStack stack) {
+        for (TagKey<Item> tag : stack.getTags().toList()) {
+            String path = tag.location().getPath(); // "ingots/copper"
+            String[] parts = path.split("/");
+            String form;
+            String materialName;
+            if (parts.length == 2) {
+                form = parts[0]; // "ingots"
+                materialName = parts[1]; // "copper"
+            } else {
+                continue;
+            }
+            IForgeRegistry<Material> materialRegistry = RegistryManager.ACTIVE.getRegistry(Balance.MATERIAL_REGISTRY_KEY);
+            Material material = materialRegistry.getValue(fromNamespaceAndPath(MODID, materialName));
+            if (material == null) continue;
 
-        int factor = FORMS.get(form);
-        Map<Chemical, Long> result = new HashMap<>();
-        material.content().forEach((chem, amount) -> result.put(chem, amount * factor));
-        return Optional.of(result);
+            int factor = FORMS.get(form);
+            Map<Chemical, Long> result = new HashMap<>();
+            material.content().forEach((chem, amount) -> result.put(chem, amount * factor));
+            return Optional.of(result);
+        }
+        return Optional.empty();
     }
 }

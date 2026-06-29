@@ -23,8 +23,9 @@ public class ReactorConnection {
     private int contactHeight;
     private boolean active = true;
     private boolean mechanical = false;
+    private double drivingPressure = 0;
     private static final double STEP_LENGTH = 0.05;
-    private static final double SPREAD_RATE = 1;
+    private static final double SPREAD_RATE = 0.01;
     private List<Container.PhaseInterface> interfaces;
     private double gasArea = 0;
 
@@ -128,7 +129,6 @@ public class ReactorConnection {
 
     public void apply() {
         if (!active) return;
-        exchangeHeat();
         if (type == ConnectionType.NEIGHBOR) return;
         exchangeChemical(upper, lower);
         exchangeChemical(lower, upper);
@@ -141,34 +141,11 @@ public class ReactorConnection {
         });
     }
 
-    private void exchangeHeat() {
-        float c1 = lower.calculateHeatCapacity();
-        float c2 = upper.calculateHeatCapacity();
-        float s1 = (lowerEntity != null) ? lowerEntity.getSurface() : 1.0f;
-        float s2 = (upperEntity != null) ? upperEntity.getSurface() : 1.0f;
-        float area = contactWidth * contactHeight;
-        float totalSurface = s1 + s2;
-        if (totalSurface == 0) return;
-        float dh = (c1 * upper.getHeat() - c2 * lower.getHeat()) / (c1 + c2) *
-                area / totalSurface / 2;
-        lower.changeHeat(dh);
-        upper.changeHeat(-dh);
-    }
-
     private void updateInterfaces() {
-        double gasLength = 0;
-
         List<Container.PhaseInterface> lowerInterfaces = lower
                 .getPhaseInterfaces(offsetLower, offsetLower + contactHeight);
-//        if (lowerInterfaces.get(1).phaseAbove().getState() == Chemical.State.GAS)
-//            gasLength = Math.max(gasLength, offsetLower + contactHeight + lowerInterfaces.get(1).height());
-
         List<Container.PhaseInterface> upperInterfaces = upper
                 .getPhaseInterfaces(offsetUpper, offsetUpper + contactHeight);
-//        if (upperInterfaces.get(1).phaseAbove().getState() == Chemical.State.GAS)
-//            gasLength = Math.max(gasLength, offsetUpper + contactHeight + upperInterfaces.get(1).height());
-
-//        gasArea = gasLength * contactWidth;
 
         Stream<Container.PhaseInterface> lowerStream = lowerInterfaces.stream()
                 .map(a -> {
@@ -186,7 +163,7 @@ public class ReactorConnection {
                 .map(a -> {
                     double height = a.height() - offsetUpper;
                     Container.PressureInfo pressureInfo = lower.getPressureInfo(height + offsetLower);
-                    double pressure = a.pressure() - pressureInfo.pressure();
+                    double pressure = a.pressure() - pressureInfo.pressure() + drivingPressure;
                     if (pressure > 0.0) {
                         return new Container.PhaseInterface(pressure, a.phaseBelow(), a.phaseAbove(), height);
                     }
@@ -208,7 +185,7 @@ public class ReactorConnection {
         double upperGlobal = offsetUpper + localHeight;
         Container.PressureInfo lowerInfo = lower.getPressureInfo(lowerGlobal);
         Container.PressureInfo upperInfo = upper.getPressureInfo(upperGlobal);
-        double pressure = upperInfo.pressure() - lowerInfo.pressure();
+        double pressure = upperInfo.pressure() - lowerInfo.pressure() + drivingPressure;
         Phase phase = pressure > 0? upperInfo.phase():lowerInfo.phase();
         return new Container.PhaseInterface(pressure, phase, phase, localHeight);
     }
@@ -225,8 +202,8 @@ public class ReactorConnection {
             double p2 = upper.pressure();
             Phase phase1 = lower.phaseAbove();
             Phase phase2 = upper.phaseBelow();
-            double density1 = phase1.getState() != Chemical.State.GAS? phase1.getDensity() : 1/SPREAD_RATE;
-            double density2 = phase2.getState() != Chemical.State.GAS? phase2.getDensity() : 1/SPREAD_RATE;
+            double density1 = phase1.getDensity() * (phase1.getState() != Chemical.State.GAS? 1 : 1/SPREAD_RATE);
+            double density2 = phase2.getDensity() * (phase2.getState() != Chemical.State.GAS? 1 : 1/SPREAD_RATE);
             if (phase1 != phase2) {
                 double zero = h1 - p1 * (h1 - h2) / (p1 - p2);
                 double v1 = pressureIntegralA(Math.abs(h1 - zero), p1, density1);
@@ -250,7 +227,8 @@ public class ReactorConnection {
     private double pressureIntegralB(double height, double pressure1, double pressure2, double density) {
         if (height <= 0 || density <= 0) return 0.0;
         double p1Abs = Math.abs(pressure1);
-        if (pressure1 == pressure2) return STEP_LENGTH * height * contactWidth * Math.sqrt(2 * p1Abs / density);
+        if (pressure1 == pressure2)
+            return STEP_LENGTH * height * contactWidth * Math.sqrt(2 * p1Abs / density);
         double p2Abs = Math.abs(pressure2);
         double sp1 = Math.sqrt(p1Abs);
         double sp2 = Math.sqrt(p2Abs);
@@ -263,17 +241,21 @@ public class ReactorConnection {
         double lowerHeight = lower.getHeight();
         Container.PressureInfo lowerTop = lower.getPressureInfo(lowerHeight);
         if (lowerTop.phase().isEmpty()) lowerTop = lower.getPressureInfo(lowerHeight);
+        final double g = 9.8;
+        double deltaP = upperBottom.pressure() - lowerTop.pressure() + drivingPressure;
+        double pressure = deltaP;
+        if (mechanical && upperBottom.phase().getState() != Chemical.State.GAS) pressure += upperBottom.phase().getDensity() * 1000 * g;
 
-        double deltaP = lowerTop.pressure() - upperBottom.pressure();
-        if (Math.abs(deltaP) < 1e-12) return;
-
-        boolean downToUp = deltaP > 0;
+        boolean downToUp = pressure < 0;
         Phase sourcePhase = downToUp ? lowerTop.phase() : upperBottom.phase();
+
+        if (mechanical && downToUp && deltaP + sourcePhase.getDensity() * 1000 * g > 0) return;
+
         double density = sourcePhase.getDensity();
-        if (sourcePhase.getState() == Chemical.State.GAS) density = 1 / SPREAD_RATE;
+        if (sourcePhase.getState() == Chemical.State.GAS) density = density / SPREAD_RATE;
         double area = contactWidth * contactHeight;
-        double absDeltaP = Math.abs(deltaP);
-        double volume = STEP_LENGTH * area * Math.sqrt(2 * absDeltaP / density);
+        double absP = Math.abs(pressure);
+        double volume = STEP_LENGTH * area * Math.sqrt(2 * absP / density);
         if (volume <= 0) return;
 
         sourcePhase.demand(this, volume);
@@ -352,6 +334,9 @@ public class ReactorConnection {
     }
 
     public void invalidate() { active = false; }
+    public void setDrivingPressure(double pressure) {
+        drivingPressure = pressure;
+    }
     public boolean isActive() { return active; }
     public boolean isAtmosphereConnection() {
         return upperEntity == null || lowerEntity == null;

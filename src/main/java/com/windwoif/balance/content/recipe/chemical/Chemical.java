@@ -15,7 +15,7 @@ public record Chemical(String name, State state, int enthalpy, float entropy, fl
     public float getHeatCapacity(long amount) {
         return (float) ((amount / 1000.0) * MolarHeatCapacity);
     }
-    public float getMass(long amount) {
+    public float getMass(long amount) { //kg
         return (float) ((amount / 1000.0 / 1000.0) * molarMass);
     }
 }

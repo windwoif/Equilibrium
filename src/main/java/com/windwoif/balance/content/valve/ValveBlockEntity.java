@@ -1,6 +1,5 @@
 package com.windwoif.balance.content.valve;
 
-import com.windwoif.balance.AllBlockEntityTypes;
 import com.windwoif.balance.content.reactors.connection.ReactorConnection;
 import com.windwoif.balance.content.reactors.connection.ReactorConnectionManager;
 import com.windwoif.balance.content.reactors.reactorEntity.ReactorEntity;
@@ -9,6 +8,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
@@ -17,8 +17,8 @@ public class ValveBlockEntity extends BlockEntity {
     private Direction facing;
     private boolean powered;
 
-    public ValveBlockEntity(BlockPos pos, BlockState state) {
-        super(AllBlockEntityTypes.VALVE.get(), pos, state);
+    public ValveBlockEntity(BlockEntityType<?> typeIn, BlockPos pos, BlockState state) {
+        super(typeIn, pos, state);
         this.facing = state.getValue(ValveBlock.FACING);
         this.powered = state.getValue(ValveBlock.POWERED);
     }
@@ -51,33 +51,33 @@ public class ValveBlockEntity extends BlockEntity {
 
     private void tryEstablishConnection() {
         if (level == null || level.isClientSide) return;
-        Direction dir = facing;
-        BlockPos frontPos = worldPosition.relative(dir);
-        BlockPos backPos = worldPosition.relative(dir.getOpposite());
+        Direction facing = getBlockState().getValue(ValveBlock.FACING);
+        BlockPos frontPos = worldPosition.relative(facing);
+        BlockPos backPos = worldPosition.relative(facing.getOpposite());
 
         ReactorEntity front = findReactorAt(frontPos);
         ReactorEntity back = findReactorAt(backPos);
-        if (front == null || back == null) {
-            return;
-        }
+        if (front == null || back == null) return;
 
-        ReactorConnectionManager manager = ReactorConnectionManager.get((ServerLevel) level);
+        ReactorConnectionManager manager = ReactorConnectionManager.get(level);
         if (manager == null) return;
 
         double globalMinY = worldPosition.getY();
-        double globalMaxY = globalMinY + 1.0;
+        ReactorConnection.ConnectionType type;
+        if (facing == Direction.UP || facing == Direction.DOWN) {
+            type = ReactorConnection.ConnectionType.HORIZONTAL;
+        } else {
+            type = ReactorConnection.ConnectionType.VERTICAL;
+        }
 
-        this.connection = manager.createManualConnection(front, back,
-                ReactorConnection.ConnectionType.VERTICAL,
-                1, 1, globalMinY, globalMaxY);
 
+        this.connection = manager.designateConnection(front, back, type, 1, 1, globalMinY);
         if (this.connection != null) {
             this.connection.setActive(powered);
-        } else {
         }
     }
 
-    private void removeConnection() {
+    void removeConnection() {
         if (connection != null && level instanceof ServerLevel serverLevel) {
             ReactorConnectionManager manager = ReactorConnectionManager.get(serverLevel);
             if (manager != null) {

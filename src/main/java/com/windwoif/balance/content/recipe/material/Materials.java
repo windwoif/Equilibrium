@@ -38,7 +38,8 @@ public class Materials {
             () -> new Material("redstone",
                     phase -> phase.getState() == Chemical.State.GAS,
                     Map.of(
-                            Chemicals.OXYGEN.get(), 10000L
+                            Chemicals.OXYGEN.get(), 1000L,
+                            Chemicals.NITROGEN.get(), 4000L
                     )
             ));
     public static final RegistryObject<Material> TEST2 = Balance.MATERIALS.register("lapis",

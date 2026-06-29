@@ -99,7 +99,7 @@ public class Reactions {
                     Map.of(Chemicals.IRON.get(), 1),
                     Map.of(Chemicals.MOLTEN_IRON.get(), 1),
                     13800.0,
-                    1e3,
+                    1e2,
                     SURFACE
             ));
 
@@ -109,7 +109,7 @@ public class Reactions {
                     Map.of(Chemicals.GOLD.get(), 1),
                     Map.of(Chemicals.MOLTEN_GOLD.get(), 1),
                     12600.0,
-                    1e3,
+                    1e2,
                     SURFACE
             ));
 
@@ -119,7 +119,7 @@ public class Reactions {
                     Map.of(Chemicals.COPPER.get(), 1),
                     Map.of(Chemicals.MOLTEN_COPPER.get(), 1),
                     13100.0,
-                    1e3,
+                    1e2,
                     SURFACE
             ));
 
@@ -133,7 +133,7 @@ public class Reactions {
                             Chemicals.CARBON_DIOXIDE.get(), 1
                     ),
                     50000.0,
-                    1e8,
+                    1e4,
                     SURFACE
             ));
 }

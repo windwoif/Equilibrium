@@ -1,13 +1,14 @@
 package com.windwoif.balance.content.valve;
 
+import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import com.windwoif.balance.AllBlockEntityTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.BaseEntityBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -18,8 +19,8 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import org.jetbrains.annotations.Nullable;
 
-public class ValveBlock extends BaseEntityBlock {
-    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+public class ValveBlock extends BaseEntityBlock implements IWrenchable {
+    public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 
     public ValveBlock(Properties properties) {
@@ -37,16 +38,15 @@ public class ValveBlock extends BaseEntityBlock {
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        // 仅在服务端执行 tick
         if (level.isClientSide) return null;
-        return createTickerHelper(type, AllBlockEntityTypes.VALVE.get(), ValveBlockEntity::tick);
+        return createTickerHelper(type, AllBlockEntityTypes.VALVE_BLOCK_ENTITY.get(), ValveBlockEntity::tick);
     }
 
     @Nullable
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
         return defaultBlockState()
-                .setValue(FACING, context.getHorizontalDirection())
+                .setValue(FACING, context.getNearestLookingDirection())
                 .setValue(POWERED, false);
     }
 
@@ -67,11 +67,39 @@ public class ValveBlock extends BaseEntityBlock {
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new ValveBlockEntity(pos, state);
+        return new ValveBlockEntity(AllBlockEntityTypes.VALVE_BLOCK_ENTITY.get(), pos, state);
     }
 
     @Override
     public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
+    }
+
+    @Override
+    public BlockState getRotatedBlockState(BlockState originalState, Direction targetedFace) {
+        Direction facing = originalState.getValue(FACING);
+        if (facing.getAxis() == targetedFace.getAxis())
+            return originalState;
+        Direction newFacing = facing.getClockWise(targetedFace.getAxis());
+        return originalState.setValue(FACING, newFacing);
+    }
+
+    @Override
+    public BlockState rotate(BlockState state, Rotation rot) {
+        return state.setValue(FACING, rot.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public BlockState mirror(BlockState state, Mirror mirrorIn) {
+        return state.rotate(mirrorIn.getRotation(state.getValue(FACING)));
+    }
+
+    @Override
+    public InteractionResult onWrenched(BlockState state, UseOnContext context) {
+        if (context.getLevel().getBlockEntity(context.getClickedPos()) instanceof ValveBlockEntity valve) {
+            valve.removeConnection();
+        }
+        return IWrenchable.super.onWrenched(state, context);
     }
 }

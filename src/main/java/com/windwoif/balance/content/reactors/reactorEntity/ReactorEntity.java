@@ -7,10 +7,10 @@ import com.simibubi.create.content.schematics.requirement.ItemRequirement.ItemUs
 import com.windwoif.balance.AllEntityTypes;
 import com.windwoif.balance.AllItems;
 import com.windwoif.balance.Balance;
-import com.windwoif.balance.content.reactors.reactorCore.Phase;
-import com.windwoif.balance.content.reactors.reactorCore.Reactor;
 import com.windwoif.balance.content.reactors.connection.ReactorConnection;
 import com.windwoif.balance.content.reactors.connection.ReactorConnectionManager;
+import com.windwoif.balance.content.reactors.reactorCore.Phase;
+import com.windwoif.balance.content.reactors.reactorCore.Reactor;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 import com.windwoif.balance.content.recipe.material.Material;
 import com.windwoif.balance.dimension.Atmosphere;
@@ -27,13 +27,12 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Mirror;
@@ -112,7 +111,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
         }
 
         if (!level().isClientSide) {
-            boolean burning = reactor != null && reactor.getTemperature() > 800;
+            boolean burning = reactor.isBurning();
             this.entityData.set(BURNING, burning);
             updateClientPhases();
         }
@@ -122,8 +121,26 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             if (now - lastConnectionRefresh >= CONNECTION_REFRESH_INTERVAL) {
                 updateConnections();
                 refreshAtmosphereConnections();
+                absorbItems();
                 lastConnectionRefresh = now;
             }
+        }
+    }
+
+    private void absorbItems() {
+        AABB absorbBox = getBoundingBox();
+        List<ItemEntity> items = level().getEntitiesOfClass(ItemEntity.class, absorbBox);
+        for (ItemEntity item : items) {
+            ItemStack stack = item.getItem();
+            Optional<Map<Chemical, Long>> composition = Material.resolve(stack);
+            composition.ifPresent(chemicalLongMap -> {
+                int count = stack.getCount();
+                chemicalLongMap.forEach((chem, amountPerItem) -> {
+                    long totalAmount = amountPerItem * count;
+                    reactor.changeChemical(chem, totalAmount, atmosphere.temperature());
+                });
+            });
+            item.discard();
         }
     }
 
@@ -195,16 +212,14 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             return InteractionResult.FAIL;
         }
 
-        for (TagKey<Item> tag : stack.getTags().toList()) {
-            Optional<Map<Chemical, Long>> composition = Material.resolveTagToChemicals(tag);
-            if (composition.isPresent()) {
-                composition.get().forEach((chem, amount) -> {
-                    if (reactor != null) reactor.changeChemical(chem, amount, atmosphere.temperature());
-                });
-                stack.shrink(1);
-                player.displayClientMessage(Component.literal("Item decomposed"), true);
-                return InteractionResult.SUCCESS;
-            }
+        Optional<Map<Chemical, Long>> composition = Material.resolve(stack);
+        if (composition.isPresent()) {
+            composition.get().forEach((chem, amount) -> {
+                if (reactor != null) reactor.changeChemical(chem, amount, atmosphere.temperature());
+            });
+            stack.shrink(1);
+            player.displayClientMessage(Component.literal("Item decomposed"), true);
+            return InteractionResult.SUCCESS;
         }
 
         player.displayClientMessage(Component.literal("Cannot decompose this item"), true);
@@ -359,7 +374,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
 
     @Override
     public ItemRequirement getRequiredItems() {
-        return new ItemRequirement(ItemUseType.DAMAGE, AllItems.WRENCH_ITEM.get());
+        return new ItemRequirement(ItemUseType.DAMAGE, AllItems.HAMMER.get());
     }
 
     @Override

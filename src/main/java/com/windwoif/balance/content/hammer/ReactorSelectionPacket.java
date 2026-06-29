@@ -1,4 +1,4 @@
-package com.windwoif.balance.content.wrench;
+package com.windwoif.balance.content.hammer;
 
 import com.simibubi.create.foundation.networking.SimplePacketBase;
 import com.windwoif.balance.content.reactors.reactorEntity.ReactorEntity;

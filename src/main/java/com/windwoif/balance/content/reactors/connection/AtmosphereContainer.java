@@ -19,6 +19,8 @@ public class AtmosphereContainer extends Container {
         super(1, 1, atmosphere, 1000);
         this.atmosphere = atmosphere;
         atmosphere.atmosphere().forEach((key, value) -> gasPhase.getContents().put(key, (long) value));
+        gasPhase.updateMass();
+        gasPhase.updateDensity();
     }
 
     @Override

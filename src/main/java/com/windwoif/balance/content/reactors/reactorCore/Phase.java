@@ -15,8 +15,8 @@ public class Phase {
     private final Map<Chemical, Long> contents = new HashMap<>();
     private final Map<ReactorConnection, Double> connectionDemands = new HashMap<>();
     private double demandRatio = UNUPDATED;
-    private double volume;
-    private double density;
+    private double volume; //L
+    private double density; //kg/L
     private double mass;
     private double pressure;
     private static final double UNUPDATED = -1;

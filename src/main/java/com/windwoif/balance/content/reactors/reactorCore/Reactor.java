@@ -15,6 +15,8 @@ import java.util.stream.Stream;
 
 public class Reactor extends Container {
 
+    private float generatedHeat = 0;
+
     private List<Reaction> usableReactions = new ArrayList<>(RegistryManager.ACTIVE.getRegistry(Balance.REACTION_REGISTRY_KEY).getValues());
 
     public Reactor(int height, int area, Atmosphere atmosphere, long heatCapacity) {
@@ -24,17 +26,26 @@ public class Reactor extends Container {
     public void tick(float timeStep) {
         tick();
         updateUsableReactions();
-        Map<Chemical, Long> finalChange = getFinalChange(getTotalReactPlan(timeStep));
-        finalChange.forEach(this::changeChemical);
-        updateHeat(finalChange);
+        liftTemperature(generatedHeat);
+        generatedHeat = 0;
+        react(timeStep * 0.1f);//TODO
+        updateTemp();
+        react(timeStep * 0.9f);
+        heat += generatedHeat;
         tick();
         updateFlowSystem();
     }
 
-    private void updateHeat(Map<Chemical, Long> finalChange) {
-        heat -= finalChange.entrySet().stream()
+    private void react(float timeStep) {
+        Map<Chemical, Long> finalChange = getFinalChange(getTotalReactPlan(timeStep));
+        finalChange.forEach(this::changeChemical);
+        generatedHeat -= finalChange.entrySet().stream()
                 .mapToLong(entry -> entry.getKey().enthalpy() * entry.getValue() / 1000)
                 .sum();
+    }
+
+    private void updateHeat() {
+        heat -= generatedHeat;
         if  (heat <= 0.001) heat = 1;
     }
 
@@ -80,11 +91,18 @@ public class Reactor extends Container {
     }
 
     @Nullable
-    private Map.Entry<Chemical, Double> getLackingChemical(@NotNull Map<Reaction, Double> reactPlan) {
+    private Map.Entry<Chemical, Double> getLackingChemical(@NotNull Map<Reaction, Double> reactPlan, Map<Reaction, Double> accumulatedPlan) {
+        Map<Chemical, Double> accumulatedChange = getTotalChange(accumulatedPlan);
         return getTotalChange(reactPlan).entrySet().stream()
                 .filter(entry -> entry.getValue() < 0)
-                .map(entry -> Map.entry(entry.getKey(),
-                        - getChemicalAmount(entry.getKey()) / entry.getValue()))
+                .map(entry -> {
+                    Chemical chem = entry.getKey();
+                    double needed = -entry.getValue();
+                    double alreadyUsed = -accumulatedChange.getOrDefault(chem, 0.0);
+                    double available = getChemicalAmount(chem) - alreadyUsed;
+                    double ratio = available / needed;
+                    return Map.entry(chem, ratio);
+                })
                 .filter(entry -> entry.getValue() < 1)
                 .min(Map.Entry.comparingByValue()).orElse(null);
     }
@@ -117,13 +135,13 @@ public class Reactor extends Container {
         Map<Reaction, Double> reactPlan = getReactPlan(usableReactions, time);
 
         for (int i = 0; i < usableReactions.size(); i++) {
-            Map.Entry<Chemical, Double> lackingChemical = getLackingChemical(reactPlan);
+            Map.Entry<Chemical, Double> lackingChemical = getLackingChemical(reactPlan, totalReactPlan);
 
             if (lackingChemical == null) {
                 totalReactPlan = collectReactSteps(totalReactPlan, reactPlan, 1.0);
                 break;
             }
-            totalReactPlan = collectReactSteps(totalReactPlan, reactPlan,  lackingChemical.getValue());
+            totalReactPlan = collectReactSteps(totalReactPlan, reactPlan, lackingChemical.getValue());
             reactPlan = getNewReactPlan(lackingChemical, reactPlan);
         }
         return totalReactPlan.entrySet().stream()
@@ -155,6 +173,15 @@ public class Reactor extends Container {
             allReactions = RegistryManager.ACTIVE.getRegistry(Balance.REACTION_REGISTRY_KEY).getValues();
         }
         return allReactions;
+    }
+
+
+    public void light() {
+        generatedHeat += 25 * calculateHeatCapacity();
+    }
+
+    public boolean isBurning() {
+        return generatedHeat/getVolume() > 8;
     }
 
     public List<Reaction> getUsableReactions() { return usableReactions; }

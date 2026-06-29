@@ -1,10 +1,9 @@
 package com.windwoif.balance.client;
 
-import com.simibubi.create.CreateClient;
 import com.simibubi.create.content.kinetics.chainConveyor.ChainPackageInteractionHandler;
 import com.simibubi.create.content.trains.track.CurvedTrackInteraction;
 import com.windwoif.balance.Balance;
-import com.windwoif.balance.content.wrench.ReactorSelectionHandler;
+import com.windwoif.balance.content.hammer.ReactorSelectionHandler;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
@@ -13,7 +12,6 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
-import org.lwjgl.glfw.GLFW;
 
 @Mod.EventBusSubscriber(modid = Balance.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class BalanceClient {

@@ -53,11 +53,11 @@ public class ReactorConnectionManager {
         entityMap.remove(entity);
     }
 
-    public ReactorConnection createManualConnection(ReactorEntity a, ReactorEntity b,
-                                                    ReactorConnection.ConnectionType type,
-                                                    int contactWidth, int contactHeight,
-                                                    double globalMinY, double globalMaxY) {
-        ReactorConnection conn = new ReactorConnection(a, b, type, contactWidth, contactHeight, globalMinY);
+    public ReactorConnection designateConnection(ReactorEntity a, ReactorEntity b,
+                                                 ReactorConnection.ConnectionType type,
+                                                 int contactWidth, int contactHeight,
+                                                 double MinY) {
+        ReactorConnection conn = new ReactorConnection(a, b, type, contactWidth, contactHeight, MinY);
         connections.add(conn);
         entityMap.computeIfAbsent(a, k -> new HashSet<>()).add(conn);
         entityMap.computeIfAbsent(b, k -> new HashSet<>()).add(conn);
@@ -67,10 +67,10 @@ public class ReactorConnectionManager {
     public ReactorConnection createAtmosphereConnection(ReactorEntity containerEntity,
                                                         ReactorConnection.ConnectionType type,
                                                         int contactWidth, int contactHeight,
-                                                        double globalMinY,
+                                                        double MinY,
                                                         boolean atmosphereBelow) {
         ReactorConnection conn = new ReactorConnection(containerEntity, getAtmosphereContainer(),
-                type, contactWidth, contactHeight, globalMinY, atmosphereBelow);
+                type, contactWidth, contactHeight, MinY, atmosphereBelow);
         connections.add(conn);
         entityMap.computeIfAbsent(containerEntity, k -> new HashSet<>()).add(conn);
         return conn;

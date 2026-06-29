@@ -23,3 +23,20 @@ run
 
 # Files from Forge MDK
 forge*changelog.txt
+
+# Data generation output (do not commit)
+src/generated/
+
+# Runtime logs and reports
+logs/
+crash-reports/
+*.log
+*.lock
+
+# Temporary files
+*.cache
+*.tmp
+*.bak
+
+# Gradle wrapper jar (optional, some prefer to keep it)
+# gradle/wrapper/gradle-wrapper.jar

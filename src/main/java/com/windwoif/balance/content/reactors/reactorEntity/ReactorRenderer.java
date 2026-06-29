@@ -21,9 +21,9 @@ public class ReactorRenderer extends EntityRenderer<ReactorEntity> {
 	private static final int WATER_FRAME_COUNT = 32;
 	private static final int FRAME_TIME_TICKS = 2;
 
-	private final TextureAtlasSprite waterSprite;
-	private final TextureAtlasSprite gravelSprite;
-	private final TextureAtlasSprite whiteConcreteSprite;
+	private final TextureAtlasSprite liquidSprite;
+	private final TextureAtlasSprite solidSprite;
+	private final TextureAtlasSprite gasSprite;
 	private final TextureAtlasSprite lavaBWSprite;
 	private final TextureAtlasSprite lightWaterSprite;
 	private final TextureAtlasSprite flameSprite;
@@ -31,9 +31,9 @@ public class ReactorRenderer extends EntityRenderer<ReactorEntity> {
 	public ReactorRenderer(EntityRendererProvider.Context context) {
 		super(context);
 		var atlas = Minecraft.getInstance().getModelManager().getAtlas(InventoryMenu.BLOCK_ATLAS);
-		this.waterSprite = atlas.getSprite(ResourceLocation.parse("balance:block/water_still_opaque"));
-		this.gravelSprite = atlas.getSprite(ResourceLocation.parse("balance:block/powder"));
-		this.whiteConcreteSprite = atlas.getSprite(ResourceLocation.parse("balance:block/white_concrete"));
+		this.liquidSprite = atlas.getSprite(ResourceLocation.parse("balance:block/water_still_opaque"));
+		this.solidSprite = atlas.getSprite(ResourceLocation.parse("balance:block/powder"));
+		this.gasSprite = atlas.getSprite(ResourceLocation.parse("balance:block/white_concrete"));
 		this.lavaBWSprite = atlas.getSprite(ResourceLocation.parse("balance:block/lava_still_bw"));
 		this.lightWaterSprite = atlas.getSprite(ResourceLocation.parse("balance:block/water_still_light"));
 		this.flameSprite = atlas.getSprite(ResourceLocation.parse("balance:block/flame"));
@@ -69,11 +69,11 @@ public class ReactorRenderer extends EntityRenderer<ReactorEntity> {
 			float yMax = (float) topY;
 
 			TextureAtlasSprite sprite = switch (phase.state()) {
-				case SOLID -> gravelSprite;
-				case GAS -> whiteConcreteSprite;
+				case SOLID -> solidSprite;
+				case GAS -> gasSprite;
 				case MOLTEN_SALT -> lavaBWSprite;
 				case MOLTEN_METAL ->  lightWaterSprite;
-				default -> waterSprite;
+				default -> liquidSprite;
 			};
 
 			int light = switch (phase.state()) {

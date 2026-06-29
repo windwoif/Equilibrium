@@ -26,7 +26,7 @@ public class Container {
     private double TotalVolume;
 
     public static final double R = 8.314;
-    private static final double k = 0.005;
+    private static final double k = 0.0000005;
 
     public Container(int height, int area, Atmosphere atmosphere, long heatCapacity) {
         Area = area;
@@ -90,9 +90,9 @@ public class Container {
         updatePhaseOrder();
     }
 
-    private void updateTemp() {
+    protected void updateTemp() {
         float heatCapacity = calculateHeatCapacity();
-        temperature = heat / heatCapacity;
+        temperature = Math.max(1, heat / heatCapacity);
     }
 
     public float calculateHeatCapacity() {
@@ -135,10 +135,10 @@ public class Container {
                 .filter(p -> p.getState() != Chemical.State.GAS)
                 .mapToDouble(Phase::getVolume)
                 .sum();
-        double dv = Volume - occupied;
+        double dv = (Volume - occupied) / 1000;
 
         double n = getPhase(Chemical.State.GAS).getAmountOfSubstance();
-        double gasVolume = (dv + Math.sqrt(dv*dv + 4 * k * n * R * temperature)) / 2;
+        double gasVolume = 1000 * (dv + Math.sqrt(dv*dv + 4 * k * n * R * temperature * Volume/1000)) / 2;
         getPhase(Chemical.State.GAS).setVolume(Math.max(0.0, gasVolume));
         TotalVolume = occupied + gasVolume;
     }
@@ -153,8 +153,7 @@ public class Container {
 
         Phase gas = getPhase(Chemical.State.GAS);
 
-        double currentPressure = gas.isEmpty()? (TotalVolume - Volume) / k :
-                gas.getAmountOfSubstance() * R * temperature / gas.getVolume() * 1000;
+        double currentPressure = (TotalVolume - Volume) / (k * Volume);
         double currentHeight = Height;
         Phase lastPhase = null;
         for (Phase phase : sortedPhases) {
@@ -203,7 +202,9 @@ public class Container {
     protected void changeChemical(Chemical chemical, long amount) {
         if (amount == 0) return;
         contents.merge(chemical, amount, Long::sum);
-        if (contents.getOrDefault(chemical, 0L) < 0) LOGGER.error("Overcost chemicals");
+        if (contents.getOrDefault(chemical, 0L) < 0) {
+            LOGGER.error("Overcost chemicals");
+        }
         updateStateMaps(chemical, contents.get(chemical));
         if (contents.getOrDefault(chemical, 0L) == 0) contents.remove(chemical);
         markChanged();
@@ -315,13 +316,13 @@ public class Container {
         return temperature;
     }
 
+    public void liftTemperature(float heat) {
+        this.temperature += Math.max(25 * heat / calculateHeatCapacity(), 0);
+    }
+
     public float getHeat() {
         return heat;
     }
-
-    public void light() {
-        temperature += 600;
-    }//TODO
 
     public double getPressure() {
         return sortedPhases.get(0).getPressure();

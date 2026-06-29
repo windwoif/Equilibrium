@@ -1,4 +1,4 @@
-package com.windwoif.balance.content.wrench;
+package com.windwoif.balance.content.hammer;
 
 import com.google.common.base.Objects;
 import com.simibubi.create.AllSpecialTextures;
@@ -119,7 +119,7 @@ public class ReactorSelectionHandler {
             return;
         }
 
-        if (firstPos != null && !firstPos.closerThan(hovered, 24)) {
+        if (firstPos != null && !firstPos.closerThan(hovered, 10)) {
             CreateLang.translate("super_glue.too_far")
                     .color(FAIL)
                     .sendStatus(player);
@@ -173,7 +173,7 @@ public class ReactorSelectionHandler {
     }
 
     private boolean isWrench(ItemStack stack) {
-        return stack.getItem() instanceof WrenchItem;
+        return stack.getItem() instanceof HammerItem;
     }
 
     private AABB getCurrentSelectionBox() {
@@ -223,7 +223,7 @@ public class ReactorSelectionHandler {
                 face = bhr.getDirection();
             }
 
-            WrenchItem.spawnParticles(level, hoveredPos, face, true);
+            HammerItem.spawnParticles(level, hoveredPos, face, true);
 
             confirm();
             return true;
@@ -231,7 +231,7 @@ public class ReactorSelectionHandler {
 
         firstPos = hoveredPos;
         if (face != null)
-            WrenchItem.spawnParticles(level, firstPos, face, true);
+            HammerItem.spawnParticles(level, firstPos, face, true);
         CreateLang.translate("reactor.first_pos")
                 .sendStatus(player);
         if (level != null) {

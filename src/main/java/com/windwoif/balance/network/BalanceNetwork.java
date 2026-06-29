@@ -1,8 +1,7 @@
 package com.windwoif.balance.network;
 
-import com.windwoif.balance.Balance;
-import com.windwoif.balance.content.wrench.ReactorSelectionPacket;
-import com.windwoif.balance.content.wrench.ReactorRemovalPacket;
+import com.windwoif.balance.content.hammer.ReactorSelectionPacket;
+import com.windwoif.balance.content.hammer.ReactorRemovalPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
