@@ -3,16 +3,14 @@ package com.windwoif.balance.content.reactors.reactorEntity;
 import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.api.schematic.requirement.SpecialEntityItemRequirement;
 import com.simibubi.create.content.schematics.requirement.ItemRequirement;
-import com.simibubi.create.content.schematics.requirement.ItemRequirement.ItemUseType;
 import com.windwoif.balance.AllEntityTypes;
-import com.windwoif.balance.AllItems;
-import com.windwoif.balance.Balance;
 import com.windwoif.balance.content.reactors.connection.ReactorConnection;
 import com.windwoif.balance.content.reactors.connection.ReactorConnectionManager;
 import com.windwoif.balance.content.reactors.reactorCore.Phase;
 import com.windwoif.balance.content.reactors.reactorCore.Reactor;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
-import com.windwoif.balance.content.recipe.material.Material;
+import com.windwoif.balance.content.recipe.material.FluidMaterial;
+import com.windwoif.balance.content.recipe.material.ItemMaterial;
 import com.windwoif.balance.dimension.Atmosphere;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.core.BlockPos;
@@ -42,9 +40,11 @@ import net.minecraft.world.level.portal.PortalInfo;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.network.NetworkHooks;
-import net.minecraftforge.registries.IForgeRegistry;
-import net.minecraftforge.registries.RegistryManager;
 
 import java.util.*;
 
@@ -63,6 +63,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
     final Atmosphere atmosphere;
     private long lastConnectionRefresh = 0;
     private static final long CONNECTION_REFRESH_INTERVAL = 20;
+    private float burnStrength = 0f;
 
     public ReactorEntity(EntityType<?> type, Level world) {
         super(type, world);
@@ -106,17 +107,12 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             return;
         }
 
-        if (!level().isClientSide && reactor != null) {
-            reactor.tick(0.05f);
-        }
-
         if (!level().isClientSide) {
+            reactor.tick(0.05f);
             boolean burning = reactor.isBurning();
             this.entityData.set(BURNING, burning);
             updateClientPhases();
-        }
 
-        if (!level().isClientSide) {
             long now = level().getGameTime();
             if (now - lastConnectionRefresh >= CONNECTION_REFRESH_INTERVAL) {
                 updateConnections();
@@ -124,6 +120,8 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
                 absorbItems();
                 lastConnectionRefresh = now;
             }
+        } else {
+            updateBurnStrength();
         }
     }
 
@@ -132,7 +130,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
         List<ItemEntity> items = level().getEntitiesOfClass(ItemEntity.class, absorbBox);
         for (ItemEntity item : items) {
             ItemStack stack = item.getItem();
-            Optional<Map<Chemical, Long>> composition = Material.resolve(stack);
+            Optional<Map<Chemical, Long>> composition = ItemMaterial.resolveItem(stack);
             composition.ifPresent(chemicalLongMap -> {
                 int count = stack.getCount();
                 chemicalLongMap.forEach((chem, amountPerItem) -> {
@@ -207,12 +205,8 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             player.displayClientMessage(Component.literal(reactor.getPressure() + "-" + reactor.getTemperature()), true);
             return InteractionResult.SUCCESS;
         }
-        IForgeRegistry<Material> materialRegistry = RegistryManager.ACTIVE.getRegistry(Balance.MATERIAL_REGISTRY_KEY);
-        if (materialRegistry == null) {
-            return InteractionResult.FAIL;
-        }
 
-        Optional<Map<Chemical, Long>> composition = Material.resolve(stack);
+        Optional<Map<Chemical, Long>> composition = ItemMaterial.resolveItem(stack);
         if (composition.isPresent()) {
             composition.get().forEach((chem, amount) -> {
                 if (reactor != null) reactor.changeChemical(chem, amount, atmosphere.temperature());
@@ -220,6 +214,23 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
             stack.shrink(1);
             player.displayClientMessage(Component.literal("Item decomposed"), true);
             return InteractionResult.SUCCESS;
+        }
+
+        IFluidHandlerItem fluidHandler = FluidUtil.getFluidHandler(stack).orElse(null);
+        if (fluidHandler != null) {
+            FluidStack fluidStack = fluidHandler.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.EXECUTE);
+            composition = FluidMaterial.resolveFluid(fluidStack);
+            if (composition.isPresent()) {
+                composition.get().forEach((chem, amount) -> {
+                    if (reactor != null) reactor.changeChemical(chem, amount * fluidStack.getAmount(), atmosphere.temperature());
+                });
+                player.displayClientMessage(Component.literal("Item decomposed"), true);
+                ItemStack newStack = fluidHandler.getContainer();
+                if (!stack.isEmpty()) {
+                    player.setItemInHand(hand, newStack);
+                }
+                return InteractionResult.SUCCESS;
+            }
         }
 
         player.displayClientMessage(Component.literal("Cannot decompose this item"), true);
@@ -374,7 +385,7 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
 
     @Override
     public ItemRequirement getRequiredItems() {
-        return new ItemRequirement(ItemUseType.DAMAGE, AllItems.HAMMER.get());
+        return ItemRequirement.INVALID;
     }
 
     @Override
@@ -506,6 +517,18 @@ public class ReactorEntity extends Entity implements IEntityAdditionalSpawnData,
         AABB box = getBoundingBox().inflate(1);
         List<ReactorEntity> list = level().getEntitiesOfClass(ReactorEntity.class, box, e -> e != this);
         return new HashSet<>(list);
+    }
+
+    public float getBurnStrength() {
+        return burnStrength;
+    }
+
+    private void updateBurnStrength() {
+        float target = isBurning() ? 0.8f : 0f;
+        burnStrength += (target - burnStrength) * 0.01f;
+        if (Math.abs(burnStrength - target) < 0.01f) {
+            burnStrength = target;
+        }
     }
 
     @Override

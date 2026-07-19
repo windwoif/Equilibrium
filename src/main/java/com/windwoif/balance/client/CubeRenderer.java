@@ -9,7 +9,7 @@ import net.minecraft.world.inventory.InventoryMenu;
 import org.joml.Vector3f;
 
 public class CubeRenderer {
-    final static float SKEW = 1/1024f;
+    final static float SKEW = -1/256f;
     /**
      * Renders a single axis-aligned face (quad) defined by its two axes ranges and the fixed axis value.
      * The face is subdivided into 1x1 unit cells to achieve proper texture tiling.

@@ -1,8 +1,12 @@
 package com.windwoif.balance.content.recipe.reaction;
 
 import com.windwoif.balance.content.recipe.chemical.Chemical;
+import com.windwoif.balance.content.recipe.manager.RecipeDictionary;
+import net.minecraftforge.registries.RegistryObject;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -12,10 +16,15 @@ public class Reaction {
     private final double activationEnergy;
     private final double preExponential;
     private final Map<Chemical, Integer> totalReaction;
-    private static final double R = 8.314;
     public final State state;
 
-    public Reaction(Map<Chemical, Integer> reactants, Map<Chemical, Integer> products, double activationEnergy, double preExponential, State state) {
+    private static final double R = 8.314;
+
+    private static final RecipeDictionary<Reaction> INDEX = new RecipeDictionary<>();
+
+    public Reaction(Map<Chemical, Integer> reactants, Chemical featuredReactant,
+                    Map<Chemical, Integer> products, Chemical featuredProduct,
+                    double activationEnergy, double preExponential, State state) {
         this.reactants = Map.copyOf(reactants);
         this.products = Map.copyOf(products);
         this.activationEnergy = activationEnergy;
@@ -28,7 +37,16 @@ public class Reaction {
                         key -> key,
                         key -> products.getOrDefault(key, 0) - reactants.getOrDefault(key, 0)
                 ));
+        INDEX.register(featuredReactant, this);
+        INDEX.register(featuredProduct, this);
     }
+
+    public Reaction(Map<RegistryObject<Chemical>, Integer> reactants, RegistryObject<Chemical> featuredReactant,
+                    Map<RegistryObject<Chemical>, Integer> products, RegistryObject<Chemical> featuredProduct,
+                    double activationEnergy, double preExponential, State state) {
+        this(RecipeDictionary.convert(reactants), featuredReactant.get(), RecipeDictionary.convert(products), featuredProduct.get(), activationEnergy, preExponential, state);
+    }
+
     public enum State {
         LIQUID_POLAR, LIQUID_NONPOLAR, GAS, SOLID, SURFACE
     }
@@ -50,4 +68,7 @@ public class Reaction {
         return totalReaction;
     }
 
+    public static Stream<Reaction> getReactions(Collection<Chemical> chemicals) {
+        return INDEX.getRecipes(chemicals);
+    }
 }

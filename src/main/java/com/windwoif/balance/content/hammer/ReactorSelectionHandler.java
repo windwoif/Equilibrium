@@ -64,7 +64,7 @@ public class ReactorSelectionHandler {
         }
 
         AABB scanArea = player.getBoundingBox()
-                .inflate(32, 16, 32);
+                .inflate(32, 32, 32);
 
         List<ReactorEntity> reactorsNearby = null;
         if (mc.level != null) {
@@ -119,7 +119,7 @@ public class ReactorSelectionHandler {
             return;
         }
 
-        if (firstPos != null && !firstPos.closerThan(hovered, 10)) {
+        if (firstPos != null && !firstPos.closerThan(hovered, 16)) {
             CreateLang.translate("super_glue.too_far")
                     .color(FAIL)
                     .sendStatus(player);

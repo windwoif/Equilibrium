@@ -5,7 +5,6 @@ import com.simibubi.create.foundation.data.CreateRegistrate;
 import com.windwoif.balance.content.reactors.connection.ReactorConnectionManager;
 import com.windwoif.balance.content.recipe.chemical.Chemical;
 import com.windwoif.balance.content.recipe.chemical.Chemicals;
-import com.windwoif.balance.content.recipe.material.Material;
 import com.windwoif.balance.content.recipe.material.Materials;
 import com.windwoif.balance.content.recipe.reaction.Reaction;
 import com.windwoif.balance.content.recipe.reaction.Reactions;
@@ -41,12 +40,10 @@ public class Balance
     public static final Logger LOGGER = LogUtils.getLogger();
     public static final ResourceKey<Registry<Chemical>> CHEMICAL_REGISTRY_KEY = ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(MODID, "chemicals"));
     public static final ResourceKey<Registry<Reaction>> REACTION_REGISTRY_KEY = ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(MODID, "reactions"));
-    public static final ResourceKey<Registry<Material>> MATERIAL_REGISTRY_KEY = ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(MODID, "materials"));
 
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, Balance.MODID);
     public static final DeferredRegister<Chemical> CHEMICALS = DeferredRegister.create(CHEMICAL_REGISTRY_KEY, MODID);
     public static final DeferredRegister<Reaction> REACTIONS = DeferredRegister.create(REACTION_REGISTRY_KEY, MODID);
-    public static final DeferredRegister<Material> MATERIALS = DeferredRegister.create(MATERIAL_REGISTRY_KEY, MODID);
 
     public static ResourceLocation modLoc(String path){
         return ResourceLocation.fromNamespaceAndPath(MODID, path);
@@ -60,7 +57,7 @@ public class Balance
         AllBlockEntityTypes.init();
         Chemicals.init();
         Reactions.init();
-        Materials.init();
+
     }
     public Balance(FMLJavaModLoadingContext context) {
         initializeRegistries();
@@ -75,8 +72,9 @@ public class Balance
 
         CHEMICALS.register(modEventBus);
         REACTIONS.register(modEventBus);
-        MATERIALS.register(modEventBus);
         MinecraftForge.EVENT_BUS.register(this);
+
+
 
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         BalanceNetwork.registerPackets();
@@ -85,13 +83,7 @@ public class Balance
 
     private void commonSetup(final FMLCommonSetupEvent event)
     {
-//        // Some common setup code
-//        LOGGER.info("HELLO FROM COMMON SETUP");
-//
-//        if (Config.logDirtBlock)
-//            LOGGER.info("DIRT BLOCK >> {}", ForgeRegistries.BLOCKS.getKey(Blocks.DIRT));
-//
-//        LOGGER.info(Config.magicNumberIntroduction + Config.magicNumber);
+        Materials.init();
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call

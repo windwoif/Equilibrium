@@ -10,7 +10,7 @@ public class AllEntityTypes {
             Balance.REGISTRATE.<ReactorEntity>entity("reactor", ReactorEntity::new, MobCategory.MISC)
                     .properties(b -> b
                             .sized(0.0F, 0.0F)
-                            .clientTrackingRange(10)
+                            .clientTrackingRange(17)
                             .updateInterval(Integer.MAX_VALUE)
                     )
                     .register();

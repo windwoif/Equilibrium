@@ -82,10 +82,16 @@ public class ReactorRenderer extends EntityRenderer<ReactorEntity> {
 			};
 
 			int color = phase.color();
-			if (entity.isBurning() && phase.state() == Chemical.State.GAS) {
+
+			float burnStrength = entity.getBurnStrength();
+			int origAlpha = (color >> 24) & 0xFF;
+
+			if (phase.state() == Chemical.State.GAS && burnStrength > origAlpha * 196) {
+
 				light = 0xF000F0;
-				color = 0xBBFFFFFF;
 				sprite = flameSprite;
+				int alpha = (int)(burnStrength * 255);
+				color = (color & 0x00FFFFFF) | (alpha << 24);
 			}
 			if (color >> 24 == 0) continue;
 

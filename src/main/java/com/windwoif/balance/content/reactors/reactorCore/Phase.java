@@ -62,6 +62,11 @@ public class Phase {
     public double getAmountOfSubstance() {
         return contents.values().stream().mapToDouble(a -> a).sum() / 1000.0;
     }
+
+    public double getMassFraction(Chemical chemical) {
+        return chemical.getMass(contents.getOrDefault(chemical, 0L)) / mass;
+    }
+
     public int getRenderColor() {
         if (contents.isEmpty()) return 0x00000000;
 
@@ -128,7 +133,6 @@ public class Phase {
         if (!(amount >= 0)) return;
         connectionDemands.merge(connection, Math.min(amount,1e5), Double::sum);
     }
-
     public Map<Chemical, Long> getFlowAmount(ReactorConnection connection) {
         double demandVolume = connectionDemands.getOrDefault(connection, 0.0);
         if (demandVolume <= 0) return Map.of();
@@ -150,17 +154,14 @@ public class Phase {
         }
         return result;
     }
-
     private void updateDemandRatio() {
         demandRatio = Math.min(1, volume / connectionDemands.values().stream().mapToDouble(v -> v).sum());
     }
-
     public void renew() {
         connectionDemands.clear();
         demandRatio = UNUPDATED;
         RecentContents = new HashMap<>(contents);
     }
-
     public void emptyRenew() {
         connectionDemands.clear();
         demandRatio = 1;
@@ -172,6 +173,6 @@ public class Phase {
 
     @Override
     public String toString() {
-        return  String.format("%s", state);
+        return String.format("%s", state);
     }
 }
