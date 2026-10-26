@@ -1,0 +1,7 @@
+{
+	"parent": "minecraft:block/cube_column",
+	"textures": {
+		"end": "equilibrium:block/valve_off",
+		"side": "equilibrium:block/valve_side_off"
+	}
+}
